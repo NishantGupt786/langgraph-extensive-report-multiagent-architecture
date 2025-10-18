@@ -7,6 +7,7 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langgraph.graph import StateGraph, END, MessagesState
 from dotenv import load_dotenv
 import os
+from langsmith import traceable
 
 # Load environment variables
 load_dotenv()
@@ -19,6 +20,7 @@ llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash")
 #   AGENT LOGIC DEFINITIONS
 # -----------------------------
 
+@traceable
 def create_supervisor_chain():
     supervisor_prompt = ChatPromptTemplate.from_messages([
         ("system", """You are a supervisor managing a team of agents:
@@ -41,7 +43,7 @@ Respond with ONLY: researcher / analyst / writer / DONE.
     ])
     return supervisor_prompt | llm
 
-
+@traceable
 def supervisor_agent(state: Dict) -> Dict:
     task = state.get("current_task", "No task")
     has_research = bool(state.get("research_data", ""))
@@ -79,7 +81,7 @@ def supervisor_agent(state: Dict) -> Dict:
         "next_agent": next_agent
     }
 
-
+@traceable
 def researcher_agent(state: Dict) -> Dict:
     task = state.get("current_task", "research topic")
     prompt = f"""As a research specialist, provide comprehensive information about: {task}
@@ -100,7 +102,7 @@ Be concise but thorough."""
         "next_agent": "supervisor"
     }
 
-
+@traceable
 def analyst_agent(state: Dict) -> Dict:
     research_data = state.get("research_data", "")
     task = state.get("current_task", "")
@@ -122,7 +124,7 @@ Provide:
         "next_agent": "supervisor"
     }
 
-
+@traceable
 def writer_agent(state: Dict) -> Dict:
     research_data = state.get("research_data", "")
     analysis = state.get("analysis", "")
@@ -176,7 +178,7 @@ class SupervisorState(MessagesState):
     task_complete: bool = False
     current_task: str = ""
 
-
+@traceable
 def router(state: SupervisorState) -> Literal["supervisor", "researcher", "analyst", "writer", "__end__"]:
     next_agent = state.get("next_agent", "supervisor")
     if next_agent == "end" or state.get("task_complete", False):
